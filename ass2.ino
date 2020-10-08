@@ -153,9 +153,6 @@ void loop() {
   
   if (result == passcode) {
     digitalWrite(LED_GREEN, HIGH);
-    delay(200);
-    digitalWrite(LED_GREEN, LOW);
-//    Display.clear();
   } else if (result != passcode) {
     
   }
