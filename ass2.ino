@@ -22,7 +22,7 @@ int lastComfirm = HIGH;
 
 int input = HIGH;
 int lastInput = HIGH;
-int num = 0;
+int num = 1;
 
 String passcode = "2134";
 String result ="";
@@ -41,10 +41,12 @@ enum DIGITSTATE {
   DIGIT1,
   DIGIT2,
   DIGIT3,
-  DIGIT4
+  DIGIT4,
+  DIGITCOMFIRM
 };
 
 int currentDigitState = DIGITSTATE::OFF;
+int lastDigitState = DIGITSTATE::OFF;
 
 int digit1 = 0;
 int digit2 = 0;
@@ -112,38 +114,50 @@ void loop() {
     if (comfirm == LOW) {
       if (currentDigitState == DIGITSTATE::OFF) {
         Display.show("----");
-      } else if (currentDigitState == DIGITSTATE::DIGIT4) {
+        delay(1000);
+      } else if (currentDigitState == DIGITSTATE::DIGITCOMFIRM) {
         Display.clear();
       }
 
-      if (++currentDigitState > DIGITSTATE::DIGIT4) {
-        currentDigitState = DIGITSTATE::DIGIT1;
+      if (currentDigitState != lastDigitState) {
+        num = 1;
+        lastDigitState = currentDigitState;
+      }
+
+      if (++currentDigitState > DIGITSTATE::DIGITCOMFIRM) {
+        currentDigitState = DIGITSTATE::OFF;
       }     
     }
 
+    
     lastComfirm = comfirm;
   }
 
   if (currentDigitState == DIGITSTATE::DIGIT1) {
     digit1 = num;
-    Display.showDigitAt(pos0, num);
+    Display.showCharAt(pos0, '0'+ num);
   } else if (currentDigitState == DIGITSTATE::DIGIT2) {
     digit2 = num;
-    Display.showDigitAt(pos1, num);
+    Display.showCharAt(pos1, '0'+ num);
   } else if (currentDigitState == DIGITSTATE::DIGIT3) {
     digit3 = num;
-    Display.showDigitAt(pos2, num);
+    Display.showCharAt(pos2, '0'+ num);
   } else if (currentDigitState == DIGITSTATE::DIGIT4) {
     digit4 = num;
-    Display.showDigitAt(pos3, num);
+    Display.showCharAt(pos3, '0'+ num);
   }
 
-  result = String(digit1) + String(digit2) + String(digit3) + String(digit4);
-
-  Serial.println(result);
+  if (currentDigitState == DIGITSTATE::DIGITCOMFIRM) {
+    result = String(digit1) + String(digit2) + String(digit3) + String(digit4);
+  }
+  
   if (result == passcode) {
-    Display.clear();
-    delay(2000);
+    digitalWrite(LED_GREEN, HIGH);
+    delay(200);
+    digitalWrite(LED_GREEN, LOW);
+//    Display.clear();
+  } else if (result != passcode) {
+    
   }
 
 }
