@@ -17,16 +17,15 @@ int pos1 = 1;
 int pos2 = 2;
 int pos3 = 3;
 
-int comfirm = HIGH;
-int lastComfirm = HIGH;
-
 int input = HIGH;
 int lastInput = HIGH;
 int num = 1;
 
+int comfirm = HIGH;
+int lastComfirm = HIGH;
+
 String passcode = "2134";
 String result ="";
-
 
 enum STATE {
   LOCKED,
@@ -66,7 +65,24 @@ void setup() {
 }
 
 void loop() {
-  bool isDoorOpen = map(analogRead(LDR), 0, 100, 0, 1);
+  bool isDoorOpen = map(analogRead(LDR), 0, 100, 0, 1); 
+  
+//  Guarantee a correct reading of the light by applying Hysteresis.
+//  eg:
+//  const int UPPER_TH = 151;
+//  const int LOWER_TH = 147;
+//  const int LED_HEATER = 4;
+//  void loop() {  
+//    int temperature = analogRead(NTC_IN);  
+//    if (temperature > UPPER_TH) {
+//      // heater off
+//      digitalWrite(LED_HEATER, LOW);
+//      }  
+//      if (temperature < LOWER_TH) {
+//        // heater on
+//        digitalWrite(LED_HEATER, HIGH);
+//        }
+//       }
 
   switch(currentState) {
     case STATE::LOCKED:
@@ -83,10 +99,14 @@ void loop() {
       }
 
       if (currentState != previousState) {
+        if (result == passcode && currentState == STATE::UNLOCKED) {
+        disableAlarm();
+      } else {
         enableAlarm();
         delay(5000);
         disableAlarm();
       }
+     }
       
       break;
     default:
@@ -152,9 +172,12 @@ void loop() {
   }
   
   if (result == passcode) {
-    digitalWrite(LED_GREEN, HIGH);
+    rightResult();
+    currentState = STATE::UNLOCKED;
+    return;
   } else if (result != passcode) {
-    
+    currentState = STATE::LOCKED;
+    return;
   }
 
 }
@@ -164,7 +187,7 @@ void loop() {
 
 void enableAlarm() {
   digitalWrite(LED_RED, HIGH);
-  tone(BUZZER, 1);
+  tone(BUZZER, 1000);
 }
 
 void disableAlarm() {
@@ -172,6 +195,9 @@ void disableAlarm() {
   noTone(BUZZER);
 }
 
-void reset() {
-  
+void rightResult() {
+  Display.clear();
+  digitalWrite(LED_GREEN, HIGH);
+  delay(5000);
+  digitalWrite(LED_GREEN, LOW); 
 }
