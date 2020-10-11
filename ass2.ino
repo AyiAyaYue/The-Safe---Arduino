@@ -1,62 +1,51 @@
 /*
  Author: Yunyue Li
- Date: 01.10.2020
+ Date: 11.10.2020
  Assignment 2: The safe
  */
 
+#include "Display.h"
+
 #define BTN_INPUT 9
-#define BTN_COMFIRM 8
+#define BTN_CONFIRM 8
+#define LED_YELLOW 7
 #define LED_GREEN 5
 #define LED_RED 4
 #define BUZZER 3
 #define LDR A2
 
-#include "Display.h"
-int pos0 = 0;
-int pos1 = 1;
-int pos2 = 2;
-int pos3 = 3;
-
-int input = HIGH;
-int lastInput = HIGH;
-int num = 1;
-
-int comfirm = HIGH;
-int lastComfirm = HIGH;
-
+int num = 0;
+String result = "";
 String passcode = "2134";
-String result ="";
+int failedUnlockAttempts = 0;
 
-enum STATE {
-  LOCKED,
-  UNLOCKED
-};
+int lastBtnInputState = HIGH;
+int lastBtnConfirmState = HIGH;
+
+bool hasDoorOpened = false;
+
+enum STATE { LOCKED, UNLOCKED };
 
 int previousState = STATE::LOCKED;
 int currentState = STATE::LOCKED;
 
-enum DIGITSTATE {
+enum INPUT_STATE {
   OFF,
   DIGIT1,
   DIGIT2,
   DIGIT3,
   DIGIT4,
-  DIGITCOMFIRM
+  CONFIRM
 };
 
-int currentDigitState = DIGITSTATE::OFF;
-int lastDigitState = DIGITSTATE::OFF;
-
-int digit1 = 0;
-int digit2 = 0;
-int digit3 = 0;
-int digit4 = 0;
+int currentInputState = INPUT_STATE::OFF;
+int lastInputState = INPUT_STATE::OFF;
 
 void setup() {
   Serial.begin(9600);
 
   pinMode(BTN_INPUT, INPUT_PULLUP);
-  pinMode(BTN_COMFIRM, INPUT_PULLUP);
+  pinMode(BTN_CONFIRM, INPUT_PULLUP);
   pinMode(LED_GREEN, OUTPUT);
   pinMode(LED_RED, OUTPUT);
   pinMode(BUZZER, OUTPUT);
@@ -65,7 +54,7 @@ void setup() {
 }
 
 void loop() {
-  bool isDoorOpen = map(analogRead(LDR), 0, 100, 0, 1); 
+  bool isDoorOpen = map(analogRead(LDR), 0, 500, 0, 1); 
   
 //  Guarantee a correct reading of the light by applying Hysteresis.
 //  eg:
@@ -85,119 +74,134 @@ void loop() {
 //       }
 
   switch(currentState) {
-    case STATE::LOCKED:
+    case STATE::LOCKED: {
       if (isDoorOpen) {
-        currentState = STATE::UNLOCKED;
+        if (!hasDoorOpened) {
+          enableAlarm();
+        }
+        
+        hasDoorOpened = true;
         return;
+      } else if (hasDoorOpened) {
+        hasDoorOpened = false;
       }
 
+      bool btnConfirm = isButtonPressed(BTN_CONFIRM, lastBtnConfirmState);
+      bool btnInput = isButtonPressed(BTN_INPUT, lastBtnInputState);
+
+      if (btnConfirm) {
+        switch(currentInputState) {
+          case INPUT_STATE::OFF:
+            Display.show("----");
+            delay(1000);
+            break;
+          case INPUT_STATE::DIGIT1:
+          case INPUT_STATE::DIGIT2:
+          case INPUT_STATE::DIGIT3:
+          case INPUT_STATE::DIGIT4:
+            result += num;
+        }
+
+        int nextInputState = ++currentInputState;
+
+        switch(nextInputState) {
+          case INPUT_STATE::CONFIRM:
+            if (result == passcode) {
+              unlockVault();
+              currentInputState = INPUT_STATE::OFF;
+            } else {
+              if (++failedUnlockAttempts >= 3) {
+                enableAlarm();
+                failedUnlockAttempts = 0;
+              }
+              
+              Display.show("----");
+              currentInputState = INPUT_STATE::DIGIT1;
+            }
+            
+            result = "";
+            break;
+        }
+        
+        num = 1;
+      }
+
+      if (btnInput) {    
+        if (++num % 5 == 0) {
+          num = 1;
+        }
+      }
+
+      if (btnConfirm || btnInput) {        
+        switch(currentInputState) {
+          case INPUT_STATE::DIGIT1:
+          case INPUT_STATE::DIGIT2:
+          case INPUT_STATE::DIGIT3:
+          case INPUT_STATE::DIGIT4:
+            Display.showCharAt(currentInputState - 1, '0'+ num);
+        }
+      }
       break;
+    }
     case STATE::UNLOCKED:
-      if (!isDoorOpen) {
+      if (isDoorOpen) {
+        hasDoorOpened = true;
+      } else if (hasDoorOpened) {
         currentState = STATE::LOCKED;
-        return;
       }
-
-      if (currentState != previousState) {
-        if (result == passcode && currentState == STATE::UNLOCKED) {
-        disableAlarm();
-      } else {
-        enableAlarm();
-        delay(5000);
-        disableAlarm();
-      }
-     }
-      
       break;
     default:
       currentState = STATE::LOCKED;
   }
 
+  if (currentState != previousState) {
+    stateChangeNotification();
+  }
+
   previousState = currentState;
-
-  input = digitalRead(BTN_INPUT);
-
-  if (input != lastInput) {
-    if (input == LOW) {
-     num += 1;
-     if (num % 5 == 0) {
-      num = 1;
-     }
-    }
-
-    lastInput = input;
-  }
-  
-  comfirm = digitalRead(BTN_COMFIRM);
-
-  if (comfirm != lastComfirm) {
-    if (comfirm == LOW) {
-      if (currentDigitState == DIGITSTATE::OFF) {
-        Display.show("----");
-        delay(1000);
-      } else if (currentDigitState == DIGITSTATE::DIGITCOMFIRM) {
-        Display.clear();
-      }
-
-      if (currentDigitState != lastDigitState) {
-        num = 1;
-        lastDigitState = currentDigitState;
-      }
-
-      if (++currentDigitState > DIGITSTATE::DIGITCOMFIRM) {
-        currentDigitState = DIGITSTATE::OFF;
-      }     
-    }
-
-    
-    lastComfirm = comfirm;
-  }
-
-  if (currentDigitState == DIGITSTATE::DIGIT1) {
-    digit1 = num;
-    Display.showCharAt(pos0, '0'+ num);
-  } else if (currentDigitState == DIGITSTATE::DIGIT2) {
-    digit2 = num;
-    Display.showCharAt(pos1, '0'+ num);
-  } else if (currentDigitState == DIGITSTATE::DIGIT3) {
-    digit3 = num;
-    Display.showCharAt(pos2, '0'+ num);
-  } else if (currentDigitState == DIGITSTATE::DIGIT4) {
-    digit4 = num;
-    Display.showCharAt(pos3, '0'+ num);
-  }
-
-  if (currentDigitState == DIGITSTATE::DIGITCOMFIRM) {
-    result = String(digit1) + String(digit2) + String(digit3) + String(digit4);
-  }
-  
-  if (result == passcode) {
-    rightResult();
-    currentState = STATE::UNLOCKED;
-    return;
-  } else if (result != passcode) {
-    currentState = STATE::LOCKED;
-    return;
-  }
-
 }
 
+bool isButtonPressed(int pinNumber, int &lastButtonState) {
+  int buttonState = digitalRead(pinNumber);
 
- 
+  if (buttonState != lastButtonState) {
+    lastButtonState = buttonState;
+    
+    if (buttonState == LOW) {
+      return true;
+    }
+  }
+
+  return false;
+}
 
 void enableAlarm() {
-  digitalWrite(LED_RED, HIGH);
+  Serial.println((String)"ALARM SAFE " + 1337);
+  
   tone(BUZZER, 1000);
-}
 
-void disableAlarm() {
-  digitalWrite(LED_RED, LOW);
+  for (int i = 0; i < 10; ++i) {
+    digitalWrite(LED_RED, HIGH);
+    delay(250);
+    digitalWrite(LED_RED, LOW);
+    delay(250);
+  }
+
   noTone(BUZZER);
 }
 
-void rightResult() {
-  Display.clear();
+void unlockVault() {
+  currentState = STATE::UNLOCKED;
   digitalWrite(LED_GREEN, HIGH);
   delay(5000);
-  digitalWrite(LED_GREEN, LOW); 
+  digitalWrite(LED_GREEN, LOW);
+  Display.clear();
+}
+
+void stateChangeNotification() {
+  tone(BUZZER, 1000);
+  digitalWrite(LED_YELLOW, HIGH);
+  delay(200);
+  digitalWrite(LED_YELLOW, LOW);
+  noTone(BUZZER);
 }
