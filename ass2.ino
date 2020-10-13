@@ -73,6 +73,7 @@ void loop() {
 //        }
 //       }
 
+  /* check if the door is opened when it is locked, if so the alarm is triggered. And door state is detected and changed*/
   switch(currentState) {
     case STATE::LOCKED: {
       if (isDoorOpen) {
@@ -89,6 +90,9 @@ void loop() {
       bool btnConfirm = isButtonPressed(BTN_CONFIRM, lastBtnConfirmState);
       bool btnInput = isButtonPressed(BTN_INPUT, lastBtnInputState);
 
+      /* setting comfirm button function*/
+
+      /*change digit positions*/
       if (btnConfirm) {
         switch(currentInputState) {
           case INPUT_STATE::OFF:
@@ -104,6 +108,7 @@ void loop() {
 
         int nextInputState = ++currentInputState;
 
+        /* compare entered code with predefined passcode*/
         switch(nextInputState) {
           case INPUT_STATE::CONFIRM:
             if (result == passcode) {
@@ -125,13 +130,15 @@ void loop() {
         
         num = 1;
       }
-
+      
+      /* setting input button function */
       if (btnInput) {    
         if (++num % 5 == 0) {
           num = 1;
         }
       }
 
+      /* update the display*/
       if (btnConfirm || btnInput) {        
         switch(currentInputState) {
           case INPUT_STATE::DIGIT1:
@@ -143,6 +150,11 @@ void loop() {
       }
       break;
     }
+    
+    /* when it is unlocked and the door is open, door state is changed. 
+       when the door is close, it is locked again.
+       only when the door is opened with correct passcode and then close, will it send notification (yellow led)
+    */
     case STATE::UNLOCKED:
       if (isDoorOpen) {
         hasDoorOpened = true;
@@ -161,6 +173,7 @@ void loop() {
   previousState = currentState;
 }
 
+/*we want to change the global value, so we use reference operator in this case*/
 bool isButtonPressed(int pinNumber, int &lastButtonState) {
   int buttonState = digitalRead(pinNumber);
 
@@ -192,6 +205,7 @@ void enableAlarm() {
 
 void unlockVault() {
   currentState = STATE::UNLOCKED;
+  Display.show("OPEN");
   digitalWrite(LED_GREEN, HIGH);
   delay(5000);
   digitalWrite(LED_GREEN, LOW);
