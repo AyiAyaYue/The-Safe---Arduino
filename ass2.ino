@@ -55,23 +55,6 @@ void setup() {
 
 void loop() {
   bool isDoorOpen = map(analogRead(LDR), 0, 500, 0, 1); 
-  
-//  Guarantee a correct reading of the light by applying Hysteresis.
-//  eg:
-//  const int UPPER_TH = 151;
-//  const int LOWER_TH = 147;
-//  const int LED_HEATER = 4;
-//  void loop() {  
-//    int temperature = analogRead(NTC_IN);  
-//    if (temperature > UPPER_TH) {
-//      // heater off
-//      digitalWrite(LED_HEATER, LOW);
-//      }  
-//      if (temperature < LOWER_TH) {
-//        // heater on
-//        digitalWrite(LED_HEATER, HIGH);
-//        }
-//       }
 
   /* check if the door is opened when it is locked, if so the alarm is triggered. And door state is detected and changed*/
   switch(currentState) {
@@ -173,7 +156,6 @@ void loop() {
   previousState = currentState;
 }
 
-/*we want to change the global value, so we use reference operator in this case*/
 bool isButtonPressed(int pinNumber, int &lastButtonState) {
   int buttonState = digitalRead(pinNumber);
 
@@ -202,6 +184,7 @@ void enableAlarm() {
 
   noTone(BUZZER);
 }
+
 
 void unlockVault() {
   currentState = STATE::UNLOCKED;
